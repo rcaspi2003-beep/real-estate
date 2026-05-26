@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>All in 1 — Real Estate</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--cgold:#b8976a;--cgold-l:#f5ede0;--bg:#f4f2ef;--border:#e8e4df;--text:#2a2a2a;--muted:#888;--faint:#aaa;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg);}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* NAV */
+.nav{height:54px;display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;transition:background 0.4s;}
+.nav-logo{font-size:20px;font-weight:300;letter-spacing:2px;color:#fff;font-family:Georgia,serif;white-space:nowrap;}
+.nav-logo span{color:var(--cgold);font-weight:700;}
+.nav-div{width:1px;height:18px;background:rgba(255,255,255,0.2);flex-shrink:0;}
+.nav-tabs{display:flex;gap:2px;}
+.ntab{padding:6px 13px;border-radius:6px;font-size:12px;cursor:pointer;color:rgba(255,255,255,0.6);border:none;background:transparent;letter-spacing:0.3px;transition:all 0.15s;white-space:nowrap;}
+.ntab.active{background:rgba(255,255,255,0.18);color:#fff;}
+.ntab:hover:not(.active){background:rgba(255,255,255,0.09);color:#fff;}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+
+/* LANGUAGE SELECTOR — always visible with flag */
+.lang-wrap{position:relative;}
+.lang-btn{display:flex;align-items:center;gap:6px;height:30px;border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:0 10px;background:rgba(255,255,255,0.09);cursor:pointer;color:#fff;font-size:12px;white-space:nowrap;}
+.lang-btn:hover{background:rgba(255,255,255,0.15);}
+.lang-dropdown{display:none;position:absolute;right:0;top:36px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:200;min-width:140px;overflow:hidden;}
+.lang-dropdown.open{display:block;}
+.lang-option{padding:8px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);transition:background 0.1s;}
+.lang-option:hover{background:#f5f3f0;}
+.lang-option.active{background:#f0ede9;font-weight:600;}
+
+/* FAVORITES BUTTON in nav */
+.fav-nav-btn{display:flex;align-items:center;gap:6px;height:30px;border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:0 10px;background:rgba(255,255,255,0.09);cursor:pointer;color:#fff;font-size:12px;white-space:nowrap;transition:all 0.15s;}
+.fav-nav-btn:hover{background:rgba(255,255,255,0.15);}
+.fav-nav-btn .fav-count{background:var(--cgold);color:#fff;border-radius:9px;padding:1px 6px;font-size:10px;margin-left:2px;}
+
+.nbtn{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:transparent;color:rgba(255,255,255,0.85);transition:all 0.15s;white-space:nowrap;}
+.nbtn:hover{background:rgba(255,255,255,0.1);}
+.nbtn.gold{background:var(--cgold);color:#fff;border-color:transparent;font-weight:500;}
+.nbtn.gold:hover{background:#a5845a;}
+
+/* PAGES */
+.page{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.page.active{display:flex;}
+
+/* SEARCH BAR */
+.sbar{background:#fff;border-bottom:1px solid var(--border);padding:10px 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+.csel-wrap{display:flex;align-items:center;gap:7px;border-radius:8px;padding:0 12px;height:38px;min-width:170px;border:2px solid var(--cgold);background:var(--cgold-l);transition:all 0.3s;flex-shrink:0;}
+.csel-wrap select{border:none;background:transparent;outline:none;font-size:13px;font-weight:600;cursor:pointer;flex:1;color:var(--text);}
+.sinput{flex:1;min-width:150px;display:flex;align-items:center;gap:7px;border:1px solid #ddd;border-radius:8px;padding:0 11px;height:38px;background:#fafafa;}
+.sinput input{border:none;background:transparent;outline:none;font-size:13px;flex:1;color:var(--text);}
+.sinput input::placeholder{color:#bbb;}
+.fchip{height:36px;border:1px solid #ddd;border-radius:7px;padding:0 10px;font-size:12px;background:#fff;color:#555;cursor:pointer;outline:none;}
+
+/* PRICE RANGE with slider */
+.price-range-wrap{display:flex;flex-direction:column;gap:4px;min-width:200px;}
+.price-inputs{display:flex;align-items:center;gap:5px;}
+.price-inputs input{width:76px;height:34px;border:1px solid #ddd;border-radius:7px;padding:0 8px;font-size:12px;outline:none;background:#fff;}
+.price-slider-wrap{position:relative;height:20px;display:flex;align-items:center;}
+.price-slider-wrap input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;outline:none;cursor:pointer;background:#ddd;}
+.price-slider-wrap input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.2);}
+.dual-slider{position:relative;height:20px;}
+.dual-slider input[type=range]{position:absolute;width:100%;pointer-events:none;-webkit-appearance:none;height:4px;background:transparent;outline:none;}
+.dual-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;pointer-events:all;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.25);}
+.slider-track{position:absolute;height:4px;border-radius:2px;background:#ddd;width:100%;top:8px;}
+.slider-fill{position:absolute;height:4px;border-radius:2px;top:8px;}
+
+.tview{display:flex;border:1px solid #ddd;border-radius:7px;overflow:hidden;flex-shrink:0;}
+.tview button{padding:5px 9px;border:none;background:#fff;cursor:pointer;color:#999;font-size:13px;}
+.tview button.active{background:#1a3a5c;color:#fff;}
+
+.cbanner{padding:7px 18px;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0;}
+.sbadge{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:500;border:1px solid;}
+
+/* RESULTS */
+.results-layout{display:flex;flex:1;overflow:hidden;}
+#map{flex:1;z-index:1;}
+.listings-panel{width:360px;border-left:1px solid var(--border);overflow-y:auto;background:#fff;flex-shrink:0;}
+.lpanel-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#fafaf9;position:sticky;top:0;z-index:2;}
+.lcount{font-size:12px;color:var(--muted);}
+.lcard{padding:13px 15px;border-bottom:1px solid #f5f2ee;cursor:pointer;display:flex;gap:11px;transition:background 0.12s;}
+.lcard:hover{background:#faf8f5;}
+.limg{width:68px;height:56px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;background:linear-gradient(135deg,#f0ede9,#e8e4df);}
+.lbody{flex:1;min-width:0;}
+.lprice{font-size:15px;font-weight:700;}
+.ltitle{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ltags{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
+.ltag{font-size:11px;padding:2px 6px;border-radius:4px;background:#f4f2ef;color:#666;}
+.lyield{font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;}
+.lsrc{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500;}
+.fav-btn{background:none;border:none;cursor:pointer;color:#ccc;font-size:16px;align-self:flex-start;transition:color 0.15s;}
+.fav-btn.on{color:#c0724a;}
+
+/* DRAWER */
+.drawer{position:fixed;right:-440px;top:54px;width:420px;height:calc(100vh - 54px);background:#fff;border-left:1px solid var(--border);z-index:999;overflow-y:auto;transition:right 0.3s ease;box-shadow:-4px 0 20px rgba(0,0,0,0.09);}
+.drawer.open{right:0;}
+.drawer-inner{padding:20px;}
+.back-btn{background:none;border:none;cursor:pointer;font-size:11px;color:var(--faint);display:flex;align-items:center;gap:4px;padding:0;margin-bottom:14px;letter-spacing:0.5px;text-transform:uppercase;}
+.back-btn:hover{color:#1a3a5c;}
+.gallery{display:grid;grid-template-columns:2fr 1fr;gap:5px;margin-bottom:16px;}
+.gimg{border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:30px;background:linear-gradient(135deg,#f0ede9,#e8e4df);}
+.gimg.big{height:145px;grid-row:span 2;}
+.gimg.sm{height:68px;}
+.d-price{font-size:24px;font-weight:700;}
+.d-addr{font-size:13px;color:var(--muted);margin-top:3px;}
+.d-chips{display:flex;gap:6px;flex-wrap:wrap;margin:11px 0;}
+.dchip{display:flex;align-items:center;gap:4px;font-size:12px;background:#f4f2ef;border-radius:6px;padding:5px 10px;}
+.d-desc{font-size:13px;line-height:1.7;color:#777;margin-bottom:14px;}
+.slabel{font-size:10px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+.costs-tbl{width:100%;font-size:12px;border-collapse:collapse;}
+.costs-tbl td{padding:5px 0;border-bottom:1px solid #f5f2ee;color:#666;}
+.costs-tbl td:last-child{text-align:right;font-weight:700;}
+.costs-tbl .ttl td{border:none;padding-top:9px;font-weight:700;color:var(--cgold);}
+.act-btns{display:flex;gap:8px;margin-top:14px;}
+.abtn{flex:1;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid #ddd;background:#fff;color:#444;text-align:center;transition:all 0.15s;}
+.abtn:hover{border-color:#2d5a8e;color:#2d5a8e;}
+.abtn.primary{background:#1a3a5c;color:#fff;border-color:transparent;}
+.abtn.primary:hover{background:#2d5a8e;}
+
+/* FAVORITES PANEL */
+.fav-panel{position:fixed;right:-380px;top:54px;width:360px;height:calc(100vh - 54px);background:#fff;border-left:1px solid var(--border);z-index:998;overflow-y:auto;transition:right 0.3s ease;box-shadow:-4px 0 20px rgba(0,0,0,0.09);}
+.fav-panel.open{right:0;}
+.fav-panel-inner{padding:18px;}
+.fav-panel-hdr{font-size:16px;font-weight:600;color:#1a3a5c;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.fav-empty{text-align:center;color:var(--faint);font-size:13px;padding:40px 20px;}
+.fav-item{padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;display:flex;gap:10px;cursor:pointer;transition:background 0.12s;}
+.fav-item:hover{background:#faf8f5;}
+.fav-item-ico{font-size:22px;flex-shrink:0;}
+.fav-item-info{flex:1;}
+.fav-item-price{font-size:14px;font-weight:700;}
+.fav-item-title{font-size:12px;color:var(--muted);margin-top:1px;}
+.fav-remove{background:none;border:none;cursor:pointer;color:#ccc;font-size:14px;}
+.fav-remove:hover{color:#c0724a;}
+
+.map-price-pin{padding:4px 9px;border-radius:14px;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;cursor:pointer;transition:transform 0.15s;}
+.map-price-pin:hover{transform:scale(1.08);}
+
+/* YIELD PAGE */
+.ypage{padding:20px;max-width:780px;margin:0 auto;width:100%;overflow-y:auto;height:100%;}
+.ycard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,0.03);}
+.ycard-title{font-size:10px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;}
+.field{margin-bottom:10px;}
+.field label{display:block;font-size:11px;color:#999;margin-bottom:4px;}
+.field input,.field select{width:100%;height:34px;border:1px solid #e0ddd9;border-radius:7px;padding:0 10px;font-size:13px;background:#fafaf9;color:var(--text);outline:none;}
+.rcard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.03);}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.metric{background:linear-gradient(135deg,#f8f6f3,#f4f2ef);border-radius:8px;padding:12px;border:1px solid #ece9e4;}
+.metric .ml{font-size:10px;color:var(--faint);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;}
+.metric .mv{font-size:19px;font-weight:700;}
+.trow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5f2ee;color:#666;font-size:12px;}
+.trow.tot{font-weight:700;border:none;padding-top:9px;}
+.cmp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;}
+.cmp-card{border-radius:9px;padding:12px;text-align:center;border:1px solid #ece9e4;background:linear-gradient(135deg,#fafaf9,#f5f3f0);transition:transform 0.15s;}
+.cmp-card:hover{transform:translateY(-2px);}
+
+/* MESSAGES */
+.msg-layout{display:flex;flex:1;overflow:hidden;}
+.chat-list-panel{width:265px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:#fff;flex-shrink:0;}
+.citem{padding:11px 13px;border-bottom:1px solid #f8f6f3;display:flex;gap:9px;cursor:pointer;transition:background 0.12s;}
+.citem:hover,.citem.active-chat{background:#faf8f5;}
+.cico{width:34px;height:34px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,#f0ede9,#e8e4df);display:flex;align-items:center;justify-content:center;font-size:15px;}
+.msg{max-width:76%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.55;}
+.msg.in{background:#fff;align-self:flex-start;border-bottom-left-radius:3px;border:1px solid #ece9e4;color:#444;}
+.msg.out{background:#1a3a5c;color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<!-- NAV -->
+<nav class="nav" id="main-nav" style="background:#1a3a5c;">
+  <div class="nav-logo">All <span>in 1</span></div>
+  <div class="nav-div"></div>
+  <div class="nav-tabs">
+    <button class="ntab active" id="tab-search" onclick="showPage('search')">&#128269; Search</button>
+    <button class="ntab" id="tab-yield" onclick="showPage('yield')">&#128200; Investment</button>
+    <button class="ntab" id="tab-messages" onclick="showPage('messages')">&#128172; Messages
+      <span style="background:var(--cgold);color:#fff;border-radius:9px;padding:1px 6px;font-size:10px;margin-left:3px;">3</span>
+    </button>
+  </div>
+  <div class="nav-right">
+    <!-- FAVOURITES -->
+    <button class="fav-nav-btn" onclick="toggleFavPanel()">
+      &#9829; Saved <span class="fav-count" id="fav-count-badge" style="display:none;">0</span>
+    </button>
+    <!-- LANGUAGE — always shows flag + name -->
+    <div class="lang-wrap" id="lang-wrap">
+      <button class="lang-btn" onclick="toggleLangDropdown()" id="lang-btn">
+        <span id="lang-flag">🌐</span>
+        <span id="lang-name">EN</span>
+        <span style="font-size:10px;opacity:0.7;">&#9660;</span>
+      </button>
+      <div class="lang-dropdown" id="lang-dropdown">
+        <div class="lang-option active" onclick="setLang('en','🌐','EN',this)">🌐 English</div>
+        <div class="lang-option" onclick="setLang('he','🇮🇱','עברית',this)">🇮🇱 עברית</div>
+        <div class="lang-option" onclick="setLang('fr','🇫🇷','FR',this)">🇫🇷 Français</div>
+        <div class="lang-option" onclick="setLang('it','🇮🇹','IT',this)">🇮🇹 Italiano</div>
+        <div class="lang-option" onclick="setLang('es','🇪🇸','ES',this)">🇪🇸 Español</div>
+        <div class="lang-option" onclick="setLang('pt','🇵🇹','PT',this)">🇵🇹 Português</div>
+        <div class="lang-option" onclick="setLang('ru','🇷🇺','RU',this)">🇷🇺 Русский</div>
+        <div class="lang-option" onclick="setLang('ar','🇸🇦','AR',this)">🇸🇦 العربية</div>
+        <div class="lang-option" onclick="setLang('de','🇩🇪','DE',this)">🇩🇪 Deutsch</div>
+      </div>
+    </div>
+    <button class="nbtn">Log in</button>
+    <button class="nbtn gold">Sign up</button>
+  </div>
+</nav>
+
+<!-- SEARCH PAGE -->
+<div id="page-search" class="page active">
+  <div class="sbar">
+    <div class="csel-wrap" id="csel-wrap">
+      <span id="csel-flag" style="font-size:18px;">🇮🇱</span>
+      <select id="country-sel" onchange="setCountry(this.value)">
+        <option value="il">🇮🇱 Israel</option>
+        <option value="bg">🇧🇬 Bulgaria</option>
+        <option value="ge">🇬🇪 Georgia</option>
+        <option value="pt">🇵🇹 Portugal</option>
+        <option value="ro">🇷🇴 Romania</option>
+        <option value="hu">🇭🇺 Hungary</option>
+        <option value="rs">🇷🇸 Serbia</option>
+        <option value="de">🇩🇪 Germany</option>
+        <option value="es">🇪🇸 Spain</option>
+        <option value="it">🇮🇹 Italy</option>
+        <option value="fr">🇫🇷 France</option>
+        <option value="pl">🇵🇱 Poland</option>
+      </select>
+    </div>
+    <div class="sinput">
+      <span style="color:#bbb;font-size:14px;">&#128269;</span>
+      <input type="text" id="city-input" placeholder="City, neighbourhood..." value="Tel Aviv"/>
+    </div>
+    <select class="fchip"><option>Buy</option><option>Rent</option></select>
+    <select class="fchip"><option>Any type</option><option>Apartment</option><option>House</option><option>Studio</option></select>
+    <!-- PRICE RANGE with dual slider -->
+    <div class="price-range-wrap">
+      <div class="price-inputs">
+        <input type="number" id="pmin" placeholder="Min" oninput="syncSlidersFromInput()"/>
+        <span style="color:#ccc;font-size:13px;">&#8212;</span>
+        <input type="number" id="pmax" placeholder="Max" oninput="syncSlidersFromInput()"/>
+        <span id="currency-label" style="font-size:12px;color:var(--muted);white-space:nowrap;">₪</span>
+      </div>
+      <div class="dual-slider" id="dual-slider">
+        <div class="slider-track"></div>
+        <div class="slider-fill" id="slider-fill" style="background:#1a3a5c;"></div>
+        <input type="range" id="slider-min" min="0" max="100" value="0" oninput="syncFromSliders()"/>
+        <input type="range" id="slider-max" min="0" max="100" value="100" oninput="syncFromSliders()"/>
+      </div>
+    </div>
+    <select class="fchip"><option>Any rooms</option><option>Studio</option><option>1 bed</option><option>2 bed</option><option>3 bed</option><option>4+</option></select>
+    <div class="tview">
+      <button class="active">&#128506;</button>
+      <button>&#9783;</button>
+      <button>&#9776;</button>
+    </div>
+  </div>
+  <div class="cbanner">
+    <span id="banner-flag"></span>
+    <span style="color:var(--faint);font-size:12px;">Local sources:</span>
+    <span id="banner-sources"></span>
+  </div>
+  <div class="results-layout">
+    <div id="map"></div>
+    <div class="listings-panel">
+      <div class="lpanel-hdr">
+        <span class="lcount" id="lcount"></span>
+        <select class="fchip" style="height:26px;font-size:11px;border:none;background:transparent;color:var(--faint);">
+          <option>Relevance</option><option>Price &#8593;</option><option>Price &#8595;</option>
+        </select>
+      </div>
+      <div id="listing-list"></div>
+    </div>
+  </div>
+
+  <!-- DETAIL DRAWER -->
+  <div class="drawer" id="drawer">
+    <div class="drawer-inner">
+      <button class="back-btn" onclick="closeDrawer()">&#8592; Back</button>
+      <div class="gallery">
+        <div class="gimg big" id="d-icon" style="font-size:44px;"></div>
+        <div class="gimg sm" style="font-size:20px;color:#ccc;">&#127970;</div>
+        <div class="gimg sm" style="font-size:20px;color:#ccc;">&#128247;</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div class="d-price" id="d-price"></div><div class="d-addr" id="d-addr"></div></div>
+        <span id="d-yield" style="font-size:12px;padding:4px 11px;border-radius:20px;font-weight:700;"></span>
+      </div>
+      <div class="d-chips" id="d-chips"></div>
+      <div class="d-desc" id="d-desc"></div>
+      <div class="slabel">Entry costs</div>
+      <table class="costs-tbl" id="d-costs"></table>
+      <div class="act-btns" style="margin-top:14px;">
+        <button class="abtn" onclick="showPage('yield')">&#128200; Investment calc</button>
+        <button class="abtn primary" onclick="showPage('messages')">&#128172; Contact seller</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAVOURITES PANEL -->
+  <div class="fav-panel" id="fav-panel">
+    <div class="fav-panel-inner">
+      <div class="fav-panel-hdr">
+        <span>&#9829; Saved properties</span>
+        <button onclick="toggleFavPanel()" style="background:none;border:none;cursor:pointer;color:var(--faint);font-size:18px;">&#10005;</button>
+      </div>
+      <div id="fav-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- INVESTMENT PAGE -->
+<div id="page-yield" class="page">
+<div class="ypage">
+  <div style="margin-bottom:18px;">
+    <h2 style="font-size:22px;font-weight:300;color:#1a3a5c;font-family:Georgia,serif;">Investment calculator</h2>
+    <p style="font-size:13px;color:var(--muted);margin-top:4px;">Full entry cost breakdown — rental income optional</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+    <div class="ycard">
+      <div class="ycard-title">Property details</div>
+      <div class="field"><label>Country</label>
+        <select id="y-country" onchange="syncYieldCountry()">
+          <option value="il">🇮🇱 Israel</option><option value="bg">🇧🇬 Bulgaria</option>
+          <option value="ge">🇬🇪 Georgia</option><option value="pt">🇵🇹 Portugal</option>
+          <option value="ro">🇷🇴 Romania</option><option value="hu">🇭🇺 Hungary</option>
+          <option value="rs">🇷🇸 Serbia</option><option value="de">🇩🇪 Germany</option>
+          <option value="es">🇪🇸 Spain</option><option value="it">🇮🇹 Italy</option>
+          <option value="fr">🇫🇷 France</option>
+        </select>
+      </div>
+      <div class="field"><label>Purchase price <span id="y-currency-label" style="color:var(--cgold);font-weight:600;"></span></label>
+        <input type="number" id="y-price" value="1800000" oninput="calcYield()">
+      </div>
+      <div class="field"><label>Expected monthly rent <span style="font-size:10px;color:#bbb;">— optional</span></label>
+        <input type="number" id="y-rent" placeholder="Leave blank to skip" oninput="calcYield()">
+      </div>
+      <div class="field"><label>Display currency</label>
+        <select id="y-disp-currency" onchange="calcYield()">
+          <option value="LOCAL">Local currency (auto)</option>
+          <option value="EUR">&#8364; EUR</option><option value="USD">$ USD</option>
+          <option value="ILS">&#8362; ILS</option><option value="GBP">&#163; GBP</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px;">Additional costs</div>
+        <div id="custom-cost-rows"></div>
+        <button onclick="addCost()" style="font-size:12px;color:#2d5a8e;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;margin-top:4px;">&#43; Add custom cost</button>
+      </div>
+    </div>
+    <div class="ycard">
+      <div class="ycard-title"><span id="y-flag"></span> Local taxes &amp; fees</div>
+      <div id="y-tax-breakdown"></div>
+    </div>
+  </div>
+  <button onclick="calcYield()" style="width:100%;padding:12px;border-radius:9px;background:#1a3a5c;color:#fff;border:none;font-size:14px;cursor:pointer;letter-spacing:0.5px;margin-bottom:14px;">Calculate</button>
+  <div class="rcard">
+    <div class="ycard-title">Entry cost breakdown</div>
+    <div class="metric-grid" id="entry-metrics"></div>
+    <div id="yield-section" style="display:none;">
+      <div style="font-size:10px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Yield estimates (rental)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:linear-gradient(135deg,#edf5e2,#e4f0d8);border:1px solid #b8d98a;border-radius:9px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#3a6b10;margin-bottom:4px;">&#8593; Optimistic (95%)</div>
+          <div style="font-size:22px;font-weight:700;color:#3a6b10;" id="r-opt">—</div>
+          <div style="font-size:11px;color:#5a9a20;margin-top:3px;" id="r-opt-s"></div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fdf0ee,#f9e5e2);border:1px solid #e8b5ac;border-radius:9px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#9a2e2e;margin-bottom:4px;">&#8595; Pessimistic (70%)</div>
+          <div style="font-size:22px;font-weight:700;color:#9a2e2e;" id="r-pes">—</div>
+          <div style="font-size:11px;color:#c04040;margin-top:3px;" id="r-pes-s"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="rcard">
+    <div class="ycard-title">Transaction history</div>
+    <div style="font-size:12px;color:var(--faint);margin-bottom:10px;">Recent sales in this area — benchmark your price</div>
+    <div id="hist-country-label" style="font-size:12px;font-weight:700;color:#1a3a5c;margin-bottom:8px;"></div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#fafaf9;">
+        <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--faint);border-bottom:1px solid var(--border);">Date</th>
+        <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);">Address</th>
+        <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);">Size</th>
+        <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);">Type</th>
+        <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);">Price</th>
+        <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);">/m&#178;</th>
+      </tr></thead>
+      <tbody id="hist-body"></tbody>
+    </table>
+  </div>
+  <div class="rcard">
+    <div class="ycard-title">Compare entry costs across Europe</div>
+    <div style="font-size:12px;color:var(--faint);margin-bottom:12px;">Extra % above purchase price after all taxes & fees</div>
+    <div class="cmp-grid" id="cmp-grid"></div>
+  </div>
+</div>
+</div>
+
+<!-- MESSAGES PAGE -->
+<div id="page-messages" class="page">
+  <div class="msg-layout">
+    <div class="chat-list-panel">
+      <div style="padding:13px 15px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:#1a3a5c;">Messages</div>
+      <div id="chat-list" style="overflow-y:auto;flex:1;"></div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;background:#fafaf9;">
+      <div style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;gap:11px;align-items:center;background:#fff;flex-shrink:0;">
+        <div id="ch-ico" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#f0ede9,#e8e4df);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;"></div>
+        <div><div id="ch-name" style="font-size:13px;font-weight:700;color:#1a3a5c;"></div><div id="ch-addr" style="font-size:11px;color:var(--faint);margin-top:2px;"></div></div>
+      </div>
+      <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:9px;"></div>
+      <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:#fff;flex-shrink:0;">
+        <input type="text" id="chat-in" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg()" style="flex:1;height:34px;border:1px solid #e0ddd9;border-radius:17px;padding:0 14px;font-size:13px;background:#fafaf9;outline:none;"/>
+        <button onclick="sendMsg()" style="width:32px;height:32px;border-radius:50%;background:#1a3a5c;border:none;color:#fff;cursor:pointer;font-size:14px;">&#9658;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end app -->
+<script>
+// ============================================================
+// COUNTRY DATA — with local currency
+// ============================================================
+var countries={
+  il:{name:'Israel',flag:'🇮🇱',colors:['#003399','#FFFFFF'],mapCenter:[31.77,35.21],zoom:7,
+    currency:{code:'ILS',sym:'₪',rate:3.95},priceRange:{min:500000,max:5000000},
+    sources:['yad2.co.il','madlan.co.il','homeless.co.il'],
+    tax:{transfer:0.08,notary:0.005,legal:1200,agent:0.02,rentalTax:0.10},
+    history:[{date:'Apr 2025',addr:'Dizengoff, Tel Aviv',size:'72m²',type:'buy',price:2100000,psm:29166},{date:'Mar 2025',addr:'Rehavia, Jerusalem',size:'58m²',type:'buy',price:1450000,psm:25000},{date:'Mar 2025',addr:'HaNassi, Haifa',size:'90m²',type:'rent',price:7500,psm:83},{date:'Feb 2025',addr:'Rothschild, Tel Aviv',size:'65m²',type:'buy',price:3200000,psm:49230}],
+    listings:[{price:2100000,title:'3-room · Florentine, Tel Aviv',rooms:'3 rooms',size:'72m²',yield_:2.8,src:'yad2.co.il',icon:'🏙️',lat:32.056,lng:34.769,desc:'Renovated apartment in the heart of Tel Aviv. Auto-translated from Hebrew.'},{price:1450000,title:'2-room · Rehavia, Jerusalem',rooms:'2 rooms',size:'55m²',yield_:3.1,src:'madlan.co.il',icon:'🏠',lat:31.776,lng:35.213,desc:'Quiet street in prime neighbourhood. Auto-translated from Hebrew.'},{price:2800000,title:'4-room · Raanana',rooms:'4 rooms',size:'105m²',yield_:2.4,src:'yad2.co.il',icon:'🏡',lat:32.184,lng:34.871,desc:'Spacious family apartment near parks. Auto-translated from Hebrew.'},{price:1100000,title:'2-room · Carmel, Haifa',rooms:'2 rooms',size:'58m²',yield_:3.8,src:'homeless.co.il',icon:'🏢',lat:32.794,lng:34.989,desc:'Sea view, good transport links. Auto-translated from Hebrew.'}]},
+  bg:{name:'Bulgaria',flag:'🇧🇬',colors:['#FFFFFF','#00966E','#D01C1F'],mapCenter:[42.69,23.32],zoom:10,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:20000,max:200000},
+    sources:['imot.bg','bazar.bg','alo.bg'],
+    tax:{transfer:0.03,notary:0.005,legal:600,agent:0.03,rentalTax:0.10},
+    history:[{date:'May 2025',addr:'Lozenets, Sofia',size:'68m²',type:'buy',price:62000,psm:912},{date:'Apr 2025',addr:'Mladost 1, Sofia',size:'42m²',type:'buy',price:48000,psm:1143},{date:'Mar 2025',addr:'Plovdiv, Kapana',size:'55m²',type:'buy',price:38000,psm:691}],
+    listings:[{price:62000,title:'2-bed · Lozenets, Sofia',rooms:'2 bed',size:'68m²',yield_:6.2,src:'imot.bg',icon:'🏠',lat:42.673,lng:23.331,desc:'Bright 2-bedroom. Auto-translated from Bulgarian.'},{price:48500,title:'Studio · Mladost, Sofia',rooms:'Studio',size:'34m²',yield_:7.1,src:'bazar.bg',icon:'🏢',lat:42.651,lng:23.378,desc:'Near business district. Auto-translated from Bulgarian.'},{price:89000,title:'3-bed · Vitosha, Sofia',rooms:'3 bed',size:'95m²',yield_:5.4,src:'imot.bg',icon:'🏡',lat:42.660,lng:23.298,desc:'Mountain views. Auto-translated from Bulgarian.'},{price:34000,title:'1-bed · Lyulin, Sofia',rooms:'1 bed',size:'48m²',yield_:8.3,src:'alo.bg',icon:'🏠',lat:42.716,lng:23.256,desc:'Fully renovated. Auto-translated from Bulgarian.'}]},
+  ge:{name:'Georgia',flag:'🇬🇪',colors:['#FFFFFF','#FF0000'],mapCenter:[41.69,44.83],zoom:11,
+    currency:{code:'USD',sym:'$',rate:1.08},priceRange:{min:20000,max:200000},
+    sources:['myhome.ge','ss.ge','imedi.ge'],
+    tax:{transfer:0,notary:0.001,legal:400,agent:0.02,rentalTax:0.05},
+    history:[{date:'May 2025',addr:'Vake, Tbilisi',size:'72m²',type:'buy',price:55000,psm:764},{date:'Apr 2025',addr:'Saburtalo, Tbilisi',size:'42m²',type:'buy',price:38000,psm:905}],
+    listings:[{price:55000,title:'2-bed · Vake, Tbilisi',rooms:'2 bed',size:'72m²',yield_:7.8,src:'myhome.ge',icon:'🏠',lat:41.703,lng:44.772,desc:'Prestigious district. Auto-translated from Georgian.'},{price:38000,title:'Studio · Saburtalo',rooms:'Studio',size:'42m²',yield_:9.2,src:'ss.ge',icon:'🏢',lat:41.726,lng:44.769,desc:'Near university. Auto-translated from Georgian.'},{price:72000,title:'3-bed · Mtatsminda',rooms:'3 bed',size:'90m²',yield_:6.5,src:'myhome.ge',icon:'🏡',lat:41.685,lng:44.804,desc:'Panoramic views. Auto-translated from Georgian.'}]},
+  pt:{name:'Portugal',flag:'🇵🇹',colors:['#006600','#FF0000','#FFD700'],mapCenter:[38.72,-9.13],zoom:10,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:60000,max:600000},
+    sources:['idealista.pt','imovirtual.com','century21.pt'],
+    tax:{transfer:0.065,notary:0.008,legal:900,agent:0.05,rentalTax:0.28},
+    history:[{date:'May 2025',addr:'Mouraria, Lisboa',size:'65m²',type:'buy',price:185000,psm:2846},{date:'Apr 2025',addr:'Bonfim, Porto',size:'88m²',type:'buy',price:230000,psm:2614}],
+    listings:[{price:185000,title:'T2 · Mouraria, Lisboa',rooms:'2 bed',size:'65m²',yield_:4.2,src:'idealista.pt',icon:'🏠',lat:38.715,lng:-9.134,desc:'Historic Mouraria. Auto-translated from Portuguese.'},{price:230000,title:'T3 · Bonfim, Porto',rooms:'3 bed',size:'88m²',yield_:3.8,src:'imovirtual.com',icon:'🏡',lat:41.146,lng:-8.588,desc:'Near Douro river. Auto-translated from Portuguese.'},{price:98000,title:'T1 · Setubal',rooms:'1 bed',size:'52m²',yield_:5.1,src:'idealista.pt',icon:'🏢',lat:38.524,lng:-8.893,desc:'Coastal city. Auto-translated from Portuguese.'}]},
+  ro:{name:'Romania',flag:'🇷🇴',colors:['#002B7F','#FCD116','#CE1126'],mapCenter:[44.43,26.10],zoom:10,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:20000,max:200000},
+    sources:['imobiliare.ro','storia.ro','publi24.ro'],
+    tax:{transfer:0.03,notary:0.01,legal:500,agent:0.03,rentalTax:0.10},
+    history:[{date:'Apr 2025',addr:'Floreasca, Bucharest',size:'62m²',type:'buy',price:68000,psm:1097}],
+    listings:[{price:68000,title:'2 cam · Floreasca, Bucharest',rooms:'2 bed',size:'62m²',yield_:6.0,src:'imobiliare.ro',icon:'🏠',lat:44.468,lng:26.097,desc:'Modern building. Auto-translated from Romanian.'},{price:44000,title:'Garsoniera · Drumul Taberei',rooms:'Studio',size:'36m²',yield_:7.5,src:'storia.ro',icon:'🏢',lat:44.411,lng:26.030,desc:'Metro access. Auto-translated from Romanian.'}]},
+  hu:{name:'Hungary',flag:'🇭🇺',colors:['#CE2939','#FFFFFF','#477050'],mapCenter:[47.49,19.05],zoom:11,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:40000,max:300000},
+    sources:['ingatlan.com','otthonterkep.hu','jofogas.hu'],
+    tax:{transfer:0.04,notary:0.005,legal:600,agent:0.03,rentalTax:0.15},
+    history:[{date:'Apr 2025',addr:'V. kerulet, Budapest',size:'58m²',type:'buy',price:92000,psm:1586}],
+    listings:[{price:92000,title:'2-bed · Budapest V.',rooms:'2 bed',size:'58m²',yield_:4.8,src:'ingatlan.com',icon:'🏠',lat:47.501,lng:19.053,desc:'Inner city. Auto-translated from Hungarian.'},{price:61000,title:'1-bed · Budapest XIII.',rooms:'1 bed',size:'44m²',yield_:5.6,src:'ingatlan.com',icon:'🏢',lat:47.519,lng:19.061,desc:'Trendy district. Auto-translated from Hungarian.'}]},
+  rs:{name:'Serbia',flag:'🇷🇸',colors:['#C6363C','#0C4076','#EDB92E'],mapCenter:[44.80,20.46],zoom:11,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:30000,max:200000},
+    sources:['halooglasi.com','nekretnine.rs','4zida.rs'],
+    tax:{transfer:0.025,notary:0.003,legal:450,agent:0.03,rentalTax:0.15},
+    history:[{date:'Apr 2025',addr:'Vracar, Belgrade',size:'64m²',type:'buy',price:78000,psm:1219}],
+    listings:[{price:78000,title:'2-bed · Vracar, Belgrade',rooms:'2 bed',size:'64m²',yield_:5.5,src:'halooglasi.com',icon:'🏠',lat:44.793,lng:20.473,desc:'Prestigious neighbourhood. Auto-translated from Serbian.'},{price:52000,title:'Studio · Novi Beograd',rooms:'Studio',size:'38m²',yield_:6.8,src:'nekretnine.rs',icon:'🏢',lat:44.815,lng:20.408,desc:'New district. Auto-translated from Serbian.'}]},
+  de:{name:'Germany',flag:'🇩🇪',colors:['#000000','#DD0000','#FFCE00'],mapCenter:[52.52,13.40],zoom:10,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:80000,max:800000},
+    sources:['immoscout24.de','immowelt.de','ebay-kleinanzeigen.de'],
+    tax:{transfer:0.06,notary:0.015,legal:1500,agent:0.037,rentalTax:0.25},
+    history:[{date:'Apr 2025',addr:'Prenzlauer Berg, Berlin',size:'62m²',type:'buy',price:290000,psm:4677},{date:'Mar 2025',addr:'Leipzig Zentrum',size:'46m²',type:'buy',price:185000,psm:4022}],
+    listings:[{price:290000,title:'2-Zi. · Prenzlauer Berg',rooms:'2 bed',size:'62m²',yield_:2.8,src:'immoscout24.de',icon:'🏠',lat:52.538,lng:13.424,desc:'Popular neighbourhood. Auto-translated from German.'},{price:185000,title:'1-Zi. · Leipzig Zentrum',rooms:'1 bed',size:'46m²',yield_:4.1,src:'immowelt.de',icon:'🏢',lat:51.340,lng:12.374,desc:'Growing city. Auto-translated from German.'}]},
+  es:{name:'Spain',flag:'🇪🇸',colors:['#AA151B','#F1BF00'],mapCenter:[40.42,-3.70],zoom:10,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:60000,max:600000},
+    sources:['idealista.com','fotocasa.es','habitaclia.com'],
+    tax:{transfer:0.10,notary:0.012,legal:1200,agent:0.05,rentalTax:0.19},
+    history:[{date:'Apr 2025',addr:'Malasana, Madrid',size:'58m²',type:'buy',price:155000,psm:2672}],
+    listings:[{price:155000,title:'2-bed · Malasana, Madrid',rooms:'2 bed',size:'58m²',yield_:4.0,src:'idealista.com',icon:'🏠',lat:40.424,lng:-3.704,desc:'Trendy neighbourhood. Auto-translated from Spanish.'},{price:210000,title:'3-bed · Eixample, Barcelona',rooms:'3 bed',size:'82m²',yield_:3.5,src:'fotocasa.es',icon:'🏡',lat:41.392,lng:2.165,desc:'Modernist building. Auto-translated from Spanish.'}]},
+  it:{name:'Italy',flag:'🇮🇹',colors:['#009246','#FFFFFF','#CE2B37'],mapCenter:[41.90,12.49],zoom:10,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:50000,max:500000},
+    sources:['immobiliare.it','idealista.it','casa.it'],
+    tax:{transfer:0.09,notary:0.010,legal:1000,agent:0.04,rentalTax:0.21},
+    history:[{date:'May 2025',addr:'Prati, Roma',size:'65m²',type:'buy',price:175000,psm:2692},{date:'Apr 2025',addr:'Navigli, Milano',size:'42m²',type:'buy',price:130000,psm:3095}],
+    listings:[{price:175000,title:'Bilocale · Prati, Roma',rooms:'2 bed',size:'65m²',yield_:3.8,src:'immobiliare.it',icon:'🏠',lat:41.906,lng:12.461,desc:'Near Vatican. Auto-translated from Italian.'},{price:130000,title:'Monolocale · Navigli, Milano',rooms:'Studio',size:'42m²',yield_:4.5,src:'casa.it',icon:'🏢',lat:45.449,lng:9.174,desc:'Canal district. Auto-translated from Italian.'},{price:85000,title:'Trilocale · Napoli Centro',rooms:'3 bed',size:'78m²',yield_:5.2,src:'immobiliare.it',icon:'🏡',lat:40.836,lng:14.247,desc:'Historic centre. Auto-translated from Italian.'}]},
+  fr:{name:'France',flag:'🇫🇷',colors:['#002395','#FFFFFF','#ED2939'],mapCenter:[48.86,2.35],zoom:11,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:80000,max:800000},
+    sources:['seloger.com','leboncoin.fr','logic-immo.com'],
+    tax:{transfer:0.057,notary:0.015,legal:1000,agent:0.05,rentalTax:0.175},
+    history:[{date:'May 2025',addr:'11eme arr., Paris',size:'52m²',type:'buy',price:320000,psm:6154},{date:'Apr 2025',addr:'Lyon 6eme',size:'38m²',type:'buy',price:185000,psm:4868}],
+    listings:[{price:320000,title:'2P · 11eme arr., Paris',rooms:'2 bed',size:'52m²',yield_:2.9,src:'seloger.com',icon:'🏠',lat:48.858,lng:2.378,desc:'Bastille area. Auto-translated from French.'},{price:185000,title:'Studio · Lyon 6eme',rooms:'Studio',size:'38m²',yield_:3.6,src:'leboncoin.fr',icon:'🏢',lat:45.764,lng:4.832,desc:'Prestigious neighbourhood. Auto-translated from French.'},{price:220000,title:'3P · Bordeaux Chartrons',rooms:'3 bed',size:'75m²',yield_:3.2,src:'logic-immo.com',icon:'🏡',lat:44.850,lng:-0.572,desc:'Riverside district. Auto-translated from French.'}]},
+  pl:{name:'Poland',flag:'🇵🇱',colors:['#DC143C','#FFFFFF'],mapCenter:[52.23,21.01],zoom:10,
+    currency:{code:'EUR',sym:'€',rate:1},priceRange:{min:30000,max:300000},
+    sources:['otodom.pl','olx.pl','gratka.pl'],
+    tax:{transfer:0.02,notary:0.003,legal:400,agent:0.03,rentalTax:0.085},
+    history:[{date:'Apr 2025',addr:'Srodmiescie, Warsaw',size:'55m²',type:'buy',price:88000,psm:1600}],
+    listings:[{price:88000,title:'2-bed · Srodmiescie, Warsaw',rooms:'2 bed',size:'55m²',yield_:5.8,src:'otodom.pl',icon:'🏠',lat:52.232,lng:21.012,desc:'City centre. Auto-translated from Polish.'}]}
+};
+
+var EUR_RATES={ILS:3.95,USD:1.08,GBP:0.86,EUR:1};
+var currentCountry='il', activeChat=0, customCosts=[], savedProps={};
+var leafletMap=null, mapMarkers=[], favPanelOpen=false, langDropOpen=false;
+
+var convos=[
+  {prop:'3-room, Tel Aviv',addr:'Florentine · ₪2.1M · yad2.co.il',ico:'🏙️',msgs:[{out:false,txt:'Hello, is this still available?'},{out:true,txt:'Yes! Would you like to schedule a viewing?'},{out:false,txt:'Yes — next week works.'}]},
+  {prop:'2-bed, Sofia',addr:'Lozenets · €62,000 · imot.bg',ico:'🏠',msgs:[{out:false,txt:'What floor is this on?'},{out:true,txt:'3rd floor, elevator in building.'}]},
+  {prop:'Studio, Tbilisi',addr:'Saburtalo · $38,000 · ss.ge',ico:'🏢',msgs:[{out:false,txt:'Is furniture included?'},{out:true,txt:'Yes, fully furnished.'}]}
+];
+
+// ============================================================
+// HELPERS
+// ============================================================
+function hexToRgba(hex,a){
+  try{var h=hex.replace('#','');var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return'rgba('+r+','+g+','+b+','+a+')';}
+  catch(e){return'rgba(26,58,92,'+a+')';}
+}
+function getMainColor(colors){
+  var u=colors.filter(function(c){return c.toUpperCase()!=='#FFFFFF'&&c.toUpperCase()!=='#FFF';});
+  return u.length>0?u[0]:'#1a3a5c';
+}
+function buildGrad(colors){
+  var u=colors.filter(function(c){return c.toUpperCase()!=='#FFFFFF'&&c.toUpperCase()!=='#FFF';});
+  if(!u.length)return'#1a3a5c';
+  if(u.length===1)return u[0];
+  return'linear-gradient(135deg,'+u.map(function(c,i){return c+' '+Math.round(i/(u.length-1)*100)+'%';}).join(',')+')';
+}
+
+// format price in local currency
+function fmtLocal(eurAmount, countryCode){
+  var c=countries[countryCode];
+  var cur=c.currency;
+  var localAmt;
+  if(cur.code==='EUR') localAmt=eurAmount;
+  else if(cur.code==='ILS') localAmt=eurAmount*EUR_RATES.ILS;
+  else if(cur.code==='USD') localAmt=eurAmount*EUR_RATES.USD;
+  else if(cur.code==='GBP') localAmt=eurAmount*EUR_RATES.GBP;
+  else localAmt=eurAmount;
+  return cur.sym+Math.round(localAmt).toLocaleString();
+}
+
+// ============================================================
+// LANGUAGE
+// ============================================================
+function setLang(code, flag, name, el){
+  document.getElementById('lang-flag').textContent=flag;
+  document.getElementById('lang-name').textContent=name;
+  document.dir=(code==='he'||code==='ar')?'rtl':'ltr';
+  document.querySelectorAll('.lang-option').forEach(function(o){o.classList.remove('active');});
+  if(el) el.classList.add('active');
+  closeLangDropdown();
+}
+function toggleLangDropdown(){
+  langDropOpen=!langDropOpen;
+  document.getElementById('lang-dropdown').classList.toggle('open',langDropOpen);
+}
+function closeLangDropdown(){
+  langDropOpen=false;
+  document.getElementById('lang-dropdown').classList.remove('open');
+}
+document.addEventListener('click',function(e){
+  if(!document.getElementById('lang-wrap').contains(e.target)) closeLangDropdown();
+});
+
+// ============================================================
+// PRICE SLIDER
+// ============================================================
+function initSliders(code){
+  var c=countries[code];
+  var mn=c.priceRange.min, mx=c.priceRange.max;
+  var smin=document.getElementById('slider-min');
+  var smax=document.getElementById('slider-max');
+  smin.min=0; smin.max=100; smin.value=0;
+  smax.min=0; smax.max=100; smax.value=100;
+  document.getElementById('pmin').value='';
+  document.getElementById('pmax').value='';
+  document.getElementById('currency-label').textContent=c.currency.sym;
+  updateSliderFill();
+}
+function sliderValToPrice(val, code){
+  var c=countries[code];
+  return Math.round(c.priceRange.min + (val/100)*(c.priceRange.max - c.priceRange.min));
+}
+function syncFromSliders(){
+  var smin=parseInt(document.getElementById('slider-min').value);
+  var smax=parseInt(document.getElementById('slider-max').value);
+  if(smin>smax){var t=smin;smin=smax;smax=t;}
+  var c=countries[currentCountry];
+  var cur=c.currency;
+  var pMin=sliderValToPrice(smin,currentCountry);
+  var pMax=sliderValToPrice(smax,currentCountry);
+  // convert to local currency for display
+  var localMin, localMax;
+  if(cur.code==='ILS'){localMin=Math.round(pMin*EUR_RATES.ILS);localMax=Math.round(pMax*EUR_RATES.ILS);}
+  else if(cur.code==='USD'){localMin=Math.round(pMin*EUR_RATES.USD);localMax=Math.round(pMax*EUR_RATES.USD);}
+  else{localMin=pMin;localMax=pMax;}
+  document.getElementById('pmin').value=localMin;
+  document.getElementById('pmax').value=localMax;
+  updateSliderFill();
+}
+function syncSlidersFromInput(){updateSliderFill();}
+function updateSliderFill(){
+  var smin=parseInt(document.getElementById('slider-min').value)||0;
+  var smax=parseInt(document.getElementById('slider-max').value)||100;
+  var fill=document.getElementById('slider-fill');
+  var mainCol=getMainColor(countries[currentCountry].colors);
+  fill.style.left=smin+'%';
+  fill.style.width=(smax-smin)+'%';
+  fill.style.background=mainCol;
+  document.getElementById('slider-min').style.setProperty('background','transparent');
+  document.querySelectorAll('#dual-slider input[type=range]').forEach(function(inp){
+    inp.style.setProperty('--thumb-color',mainCol);
+  });
+  // style thumbs via inline
+  var style=document.getElementById('slider-style');
+  if(!style){style=document.createElement('style');style.id='slider-style';document.head.appendChild(style);}
+  style.textContent='#dual-slider input[type=range]::-webkit-slider-thumb{background:'+mainCol+';}#dual-slider input[type=range]::-moz-range-thumb{background:'+mainCol+';}';
+}
+
+// ============================================================
+// SET COUNTRY
+// ============================================================
+function setCountry(code){
+  currentCountry=code;
+  var c=countries[code];
+  var mainCol=getMainColor(c.colors);
+  document.getElementById('main-nav').style.background=buildGrad(c.colors);
+  var csw=document.getElementById('csel-wrap');
+  csw.style.borderColor=mainCol; csw.style.background=hexToRgba(mainCol,0.08);
+  document.getElementById('csel-flag').textContent=c.flag;
+  document.getElementById('banner-flag').textContent=c.flag;
+  document.getElementById('banner-sources').innerHTML=c.sources.map(function(s){
+    return'<span class="sbadge" style="background:'+hexToRgba(mainCol,0.08)+';color:'+mainCol+';border-color:'+hexToRgba(mainCol,0.2)+';">'+s+'</span>';
+  }).join(' ');
+  document.getElementById('lcount').textContent=c.listings.length+' properties · '+c.name;
+  var cityMap={il:'Tel Aviv',bg:'Sofia',ge:'Tbilisi',pt:'Lisbon',ro:'Bucharest',hu:'Budapest',rs:'Belgrade',de:'Berlin',es:'Madrid',it:'Rome',fr:'Paris',pl:'Warsaw'};
+  document.getElementById('city-input').value=cityMap[code]||'';
+  if(document.getElementById('y-country'))document.getElementById('y-country').value=code;
+  initSliders(code);
+  renderListings(code);
+  updateMap(code);
+  // update yield default price to local
+  if(document.getElementById('y-price')){
+    var defPrices={il:1800000,bg:62000,ge:55000,pt:185000,ro:68000,hu:92000,rs:78000,de:290000,es:155000,it:175000,fr:320000,pl:88000};
+    document.getElementById('y-price').value=defPrices[code]||100000;
+    document.getElementById('y-currency-label').textContent='('+c.currency.sym+' '+c.currency.code+')';
+    calcYield();
+  }
+}
+
+// ============================================================
+// MAP
+// ============================================================
+function initMap(){
+  if(leafletMap)return;
+  leafletMap=L.map('map',{zoomControl:true,scrollWheelZoom:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(leafletMap);
+}
+function updateMap(code){
+  if(!leafletMap)return;
+  var c=countries[code], mainCol=getMainColor(c.colors);
+  leafletMap.setView(c.mapCenter,c.zoom);
+  mapMarkers.forEach(function(m){leafletMap.removeLayer(m);});
+  mapMarkers=[];
+  c.listings.forEach(function(l,i){
+    if(!l.lat||!l.lng)return;
+    var dispPrice=fmtLocal(l.price/EUR_RATES[c.currency.code==='EUR'?'EUR':c.currency.code]||l.price,code);
+    // simpler: just show with local sym
+    var localP;
+    if(c.currency.code==='ILS') localP='₪'+(l.price/1000).toFixed(0)+'k';
+    else if(c.currency.code==='USD') localP='$'+(l.price/1000).toFixed(0)+'k';
+    else localP='€'+(l.price/1000).toFixed(0)+'k';
+    var icon=L.divIcon({html:'<div class="map-price-pin" style="background:'+mainCol+';color:#fff;">'+localP+'</div>',className:'',iconAnchor:[30,16]});
+    var marker=L.marker([l.lat,l.lng],{icon:icon}).addTo(leafletMap);
+    marker.on('click',function(){openDetail(i);});
+    marker.bindTooltip('<strong>'+l.title+'</strong><br>'+localP+' · '+l.yield_.toFixed(1)+'% yield',{direction:'top',offset:[0,-10]});
+    mapMarkers.push(marker);
+  });
+}
+
+// ============================================================
+// LISTINGS
+// ============================================================
+function renderListings(code){
+  var c=countries[code], mainCol=getMainColor(c.colors);
+  var html='';
+  c.listings.forEach(function(l,i){
+    var k=code+'_'+i, isSaved=savedProps[k]?true:false;
+    var localPrice;
+    if(c.currency.code==='ILS') localPrice='₪'+Math.round(l.price).toLocaleString();
+    else if(c.currency.code==='USD') localPrice='$'+Math.round(l.price).toLocaleString();
+    else localPrice='€'+Math.round(l.price).toLocaleString();
+    html+='<div class="lcard" onclick="openDetail('+i+')">';
+    html+='<div class="limg">'+l.icon+'</div>';
+    html+='<div class="lbody">';
+    html+='<div class="lprice" style="color:'+mainCol+';">'+localPrice+'</div>';
+    html+='<div class="ltitle">'+l.title+'</div>';
+    html+='<div class="ltags"><span class="ltag">'+l.rooms+'</span><span class="ltag">'+l.size+'</span>';
+    html+='<span class="lyield" style="background:'+hexToRgba('#3a6b10',0.1)+';color:#3a6b10;">'+l.yield_.toFixed(1)+'% yield</span>';
+    html+='<span class="lsrc" style="background:'+hexToRgba(mainCol,0.08)+';color:'+mainCol+';">'+l.src+'</span>';
+    html+='</div></div>';
+    html+='<button class="fav-btn'+(isSaved?' on':'')+'" onclick="event.stopPropagation();toggleSave(\''+code+'\','+i+',this)">&#9829;</button>';
+    html+='</div>';
+  });
+  document.getElementById('listing-list').innerHTML=html;
+}
+function toggleSave(code,i,btn){
+  var k=code+'_'+i;
+  if(savedProps[k]){delete savedProps[k];btn.classList.remove('on');}
+  else{savedProps[k]={country:code,idx:i};btn.classList.add('on');}
+  updateFavBadge();
+  renderFavPanel();
+}
+function updateFavBadge(){
+  var n=Object.keys(savedProps).length;
+  var badge=document.getElementById('fav-count-badge');
+  badge.textContent=n; badge.style.display=n>0?'inline':'none';
+}
+function toggleFavPanel(){
+  favPanelOpen=!favPanelOpen;
+  document.getElementById('fav-panel').classList.toggle('open',favPanelOpen);
+  renderFavPanel();
+}
+function renderFavPanel(){
+  var keys=Object.keys(savedProps);
+  if(!keys.length){document.getElementById('fav-list').innerHTML='<div class="fav-empty">No saved properties yet.<br>Click &#9829; on any listing.</div>';return;}
+  var html='';
+  keys.forEach(function(k){
+    var s=savedProps[k], c=countries[s.country], l=c.listings[s.idx], mainCol=getMainColor(c.colors);
+    var lp=c.currency.code==='ILS'?'₪'+Math.round(l.price).toLocaleString():c.currency.sym+Math.round(l.price).toLocaleString();
+    html+='<div class="fav-item" onclick="setCountry(\''+s.country+'\');showPage(\'search\');setTimeout(function(){openDetail('+s.idx+');},300);">';
+    html+='<div class="fav-item-ico">'+l.icon+'</div>';
+    html+='<div class="fav-item-info"><div class="fav-item-price" style="color:'+mainCol+';">'+lp+'</div>';
+    html+='<div class="fav-item-title">'+l.title+'</div>';
+    html+='<div style="font-size:11px;color:'+mainCol+';margin-top:2px;">'+c.flag+' '+c.name+' · '+l.src+'</div></div>';
+    html+='<button class="fav-remove" onclick="event.stopPropagation();removeSaved(\''+k+'\')">&#10005;</button>';
+    html+='</div>';
+  });
+  document.getElementById('fav-list').innerHTML=html;
+}
+function removeSaved(k){delete savedProps[k];updateFavBadge();renderFavPanel();renderListings(currentCountry);}
+
+// ============================================================
+// DETAIL DRAWER
+// ============================================================
+function openDetail(i){
+  var c=countries[currentCountry], l=c.listings[i], tx=c.tax, mainCol=getMainColor(c.colors);
+  var lp=c.currency.code==='ILS'?'₪'+Math.round(l.price).toLocaleString():c.currency.sym+Math.round(l.price).toLocaleString();
+  document.getElementById('d-icon').textContent=l.icon;
+  document.getElementById('d-price').textContent=lp; document.getElementById('d-price').style.color=mainCol;
+  document.getElementById('d-addr').textContent=l.title+', '+c.name;
+  var dy=document.getElementById('d-yield'); dy.textContent=l.yield_.toFixed(1)+'% yield'; dy.style.background=hexToRgba('#3a6b10',0.1); dy.style.color='#3a6b10';
+  document.getElementById('d-chips').innerHTML='<div class="dchip">'+l.rooms+'</div><div class="dchip">'+l.size+'</div><div class="dchip" style="color:'+mainCol+';background:'+hexToRgba(mainCol,0.08)+';">'+l.src+'</div>';
+  document.getElementById('d-desc').textContent=l.desc;
+  // costs in EUR for calculation, display in local
+  var priceEur=c.currency.code==='ILS'?l.price/EUR_RATES.ILS:(c.currency.code==='USD'?l.price/EUR_RATES.USD:l.price);
+  var tr2=priceEur*tx.transfer,no=priceEur*tx.notary,ag=priceEur*tx.agent,tot=priceEur+tr2+no+tx.legal+ag;
+  var lf=function(n){return c.currency.sym+Math.round(n*EUR_RATES[c.currency.code]||n).toLocaleString();};
+  if(c.currency.code==='EUR') lf=function(n){return'€'+Math.round(n).toLocaleString();};
+  document.getElementById('d-costs').innerHTML='<tr><td>Property price</td><td>'+lp+'</td></tr><tr><td>Transfer tax ('+(tx.transfer*100).toFixed(1)+'%)</td><td>'+lf(tr2)+'</td></tr><tr><td>Notary ('+(tx.notary*100).toFixed(1)+'%)</td><td>'+lf(no)+'</td></tr><tr><td>Legal fees</td><td>'+lf(tx.legal)+'</td></tr><tr><td>Agent ('+(tx.agent*100).toFixed(1)+'%)</td><td>'+lf(ag)+'</td></tr><tr class="ttl"><td>Total entry</td><td>'+lf(tot)+'</td></tr>';
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');}
+
+// ============================================================
+// YIELD CALCULATOR
+// ============================================================
+function syncYieldCountry(){
+  var code=document.getElementById('y-country').value;
+  currentCountry=code; document.getElementById('country-sel').value=code; setCountry(code);
+}
+function addCost(){customCosts.push({name:'',amount:0});renderCustomCosts();}
+function removeCost(i){customCosts.splice(i,1);renderCustomCosts();calcYield();}
+function renderCustomCosts(){
+  var html='';
+  customCosts.forEach(function(c,i){
+    html+='<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">';
+    html+='<input type="text" placeholder="Cost name" value="'+c.name+'" oninput="customCosts['+i+'].name=this.value;calcYield()" style="flex:1;height:30px;border:1px solid #e0ddd9;border-radius:7px;padding:0 9px;font-size:12px;background:#fafaf9;outline:none;">';
+    html+='<input type="number" placeholder="€" value="'+(c.amount||'')+'" oninput="customCosts['+i+'].amount=parseFloat(this.value)||0;calcYield()" style="width:80px;height:30px;border:1px solid #e0ddd9;border-radius:7px;padding:0 9px;font-size:12px;background:#fafaf9;outline:none;">';
+    html+='<button onclick="removeCost('+i+')" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:13px;">&#10005;</button>';
+    html+='</div>';
+  });
+  document.getElementById('custom-cost-rows').innerHTML=html;
+}
+
+function calcYield(){
+  var code=document.getElementById('y-country')?document.getElementById('y-country').value:currentCountry;
+  var c=countries[code]; if(!c)return;
+  var tx=c.tax, cur=c.currency, mainCol=getMainColor(c.colors);
+  var priceInput=parseFloat(document.getElementById('y-price').value)||0;
+  // convert to EUR for calculation
+  var priceEur=(cur.code==='ILS'?priceInput/EUR_RATES.ILS:(cur.code==='USD'?priceInput/EUR_RATES.USD:priceInput));
+  var rentInput=document.getElementById('y-rent').value;
+  var rentEur=rentInput===''?null:(cur.code==='ILS'?parseFloat(rentInput)/EUR_RATES.ILS:(cur.code==='USD'?parseFloat(rentInput)/EUR_RATES.USD:parseFloat(rentInput)))||null;
+  var dispMode=document.getElementById('y-disp-currency').value;
+  var dispRate, dispSym;
+  if(dispMode==='LOCAL'||dispMode===cur.code){dispRate=EUR_RATES[cur.code]||1;dispSym=cur.sym;}
+  else{dispRate=EUR_RATES[dispMode]||1;dispSym={EUR:'€',USD:'$',ILS:'₪',GBP:'£'}[dispMode]||'€';}
+  var fmt=function(n){return dispSym+Math.round(n*dispRate).toLocaleString();};
+  // update label
+  document.getElementById('y-currency-label').textContent='('+cur.sym+' '+cur.code+')';
+  document.getElementById('y-flag').textContent=c.flag;
+  var transfer=priceEur*tx.transfer, notary=priceEur*tx.notary, agent=priceEur*tx.agent;
+  var customTotal=customCosts.reduce(function(s,cc){return s+(parseFloat(cc.amount)||0);},0);
+  var total=priceEur+transfer+notary+tx.legal+agent+customTotal;
+  // tax breakdown
+  var thtml='';
+  var rs='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5f2ee;font-size:12px;color:#666;';
+  var ts='display:flex;justify-content:space-between;padding:9px 0 5px;font-size:12px;font-weight:700;';
+  thtml+='<div style="'+rs+'"><span>Property price</span><span style="font-weight:700;color:'+mainCol+';">'+fmt(priceEur)+'</span></div>';
+  thtml+='<div style="'+rs+'"><span>Transfer tax ('+(tx.transfer*100).toFixed(1)+'%)</span><span style="font-weight:700;color:'+mainCol+';">'+fmt(transfer)+'</span></div>';
+  thtml+='<div style="'+rs+'"><span>Notary ('+(tx.notary*100).toFixed(1)+'%)</span><span style="font-weight:700;color:'+mainCol+';">'+fmt(notary)+'</span></div>';
+  thtml+='<div style="'+rs+'"><span>Legal fees</span><span style="font-weight:700;color:'+mainCol+';">'+fmt(tx.legal)+'</span></div>';
+  thtml+='<div style="'+rs+'"><span>Agent ('+(tx.agent*100).toFixed(1)+'%)</span><span style="font-weight:700;color:'+mainCol+';">'+fmt(agent)+'</span></div>';
+  customCosts.forEach(function(cc){thtml+='<div style="'+rs+'"><span>'+(cc.name||'Custom')+'</span><span style="font-weight:700;color:'+mainCol+';">'+fmt(cc.amount)+'</span></div>';});
+  thtml+='<div style="'+ts+'"><span>Total entry cost</span><span style="color:var(--cgold);">'+fmt(total)+'</span></div>';
+  thtml+='<div style="margin-top:6px;font-size:11px;color:#aaa;">Rental income tax: '+(tx.rentalTax*100).toFixed(0)+'%</div>';
+  document.getElementById('y-tax-breakdown').innerHTML=thtml;
+  // entry metrics
+  var pct=priceEur>0?((total-priceEur)/priceEur*100).toFixed(1):'0.0';
+  var ms='background:linear-gradient(135deg,#f8f6f3,#f4f2ef);border-radius:8px;padding:12px;border:1px solid #ece9e4;';
+  document.getElementById('entry-metrics').innerHTML=
+    '<div style="'+ms+'"><div style="font-size:10px;color:#aaa;margin-bottom:4px;text-transform:uppercase;">Total entry</div><div style="font-size:18px;font-weight:700;color:var(--cgold);">'+fmt(total)+'</div></div>'+
+    '<div style="'+ms+'"><div style="font-size:10px;color:#aaa;margin-bottom:4px;text-transform:uppercase;">Extra costs</div><div style="font-size:18px;font-weight:700;color:'+mainCol+';">'+fmt(total-priceEur)+'</div></div>'+
+    '<div style="'+ms+'"><div style="font-size:10px;color:#aaa;margin-bottom:4px;text-transform:uppercase;">% over price</div><div style="font-size:18px;font-weight:700;color:#3a6b10;">+'+pct+'%</div></div>';
+  // yield
+  var ys=document.getElementById('yield-section');
+  if(rentEur&&rentEur>0){
+    ys.style.display='block';
+    var annual=rentEur*12, net=total>0?(annual*(1-tx.rentalTax))/total*100:0;
+    document.getElementById('r-opt').textContent=(net*0.95).toFixed(1)+'%';
+    document.getElementById('r-opt-s').textContent=fmt(annual*(1-tx.rentalTax)*0.95)+'/yr';
+    document.getElementById('r-pes').textContent=(net*0.70).toFixed(1)+'%';
+    document.getElementById('r-pes-s').textContent=fmt(annual*(1-tx.rentalTax)*0.70)+'/yr';
+  } else ys.style.display='none';
+  // history
+  document.getElementById('hist-country-label').innerHTML=c.flag+' '+c.name;
+  var hb='';
+  (c.history||[]).forEach(function(h){
+    var bs=h.type==='buy'?'background:#e8f0fb;color:#1a3a5c;':'background:#e8f5e8;color:#2d6b10;';
+    hb+='<tr><td style="padding:7px 10px;border-bottom:1px solid #f5f2ee;color:#555;">'+h.date+'</td><td style="padding:7px 10px;border-bottom:1px solid #f5f2ee;color:#555;">'+h.addr+'</td><td style="padding:7px 10px;border-bottom:1px solid #f5f2ee;color:#555;">'+h.size+'</td>';
+    hb+='<td style="padding:7px 10px;border-bottom:1px solid #f5f2ee;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;'+bs+'">'+(h.type==='buy'?'Sale':'Rent')+'</span></td>';
+    hb+='<td style="padding:7px 10px;border-bottom:1px solid #f5f2ee;color:#555;font-weight:600;">'+cur.sym+h.price.toLocaleString()+'</td>';
+    hb+='<td style="padding:7px 10px;border-bottom:1px solid #f5f2ee;color:#555;">'+cur.sym+h.psm.toLocaleString()+'</td></tr>';
+  });
+  document.getElementById('hist-body').innerHTML=hb;
+  // compare
+  var cmpKeys=['il','bg','ge','pt','ro','it','fr','de'];
+  var ch='';
+  cmpKeys.forEach(function(k){
+    var cc=countries[k],tt=cc.tax;
+    var te=priceEur*(1+tt.transfer+tt.notary+tt.agent)+tt.legal+customTotal;
+    var cp=priceEur>0?((te-priceEur)/priceEur*100).toFixed(1):'0.0';
+    ch+='<div class="cmp-card" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">';
+    ch+='<div style="font-size:22px;margin-bottom:3px;">'+cc.flag+'</div>';
+    ch+='<div style="font-size:10px;color:#aaa;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;">'+cc.name+'</div>';
+    ch+='<div style="font-size:17px;font-weight:700;color:#3a6b10;">+'+cp+'%</div>';
+    ch+='<div style="font-size:10px;color:#bbb;">over price</div></div>';
+  });
+  document.getElementById('cmp-grid').innerHTML=ch;
+}
+
+// ============================================================
+// MESSAGES
+// ============================================================
+function renderChats(){
+  var html='';
+  convos.forEach(function(c,i){
+    var isActive=i===activeChat;
+    html+='<div class="citem'+(isActive?' active-chat':'')+'" onclick="openChat('+i+')" id="ci-'+i+'">';
+    html+='<div class="cico">'+c.ico+'</div>';
+    html+='<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:#1a3a5c;">Agent</div>';
+    html+='<div style="font-size:11px;color:#1a3a5c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+c.prop+'</div>';
+    html+='<div style="font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+c.msgs[c.msgs.length-1].txt+'</div></div>';
+    html+='<div style="font-size:10px;color:#ccc;flex-shrink:0;padding-top:2px;">2h</div></div>';
+  });
+  document.getElementById('chat-list').innerHTML=html;
+  openChat(activeChat);
+}
+function openChat(i){
+  activeChat=i; var c=convos[i];
+  document.getElementById('ch-ico').textContent=c.ico;
+  document.getElementById('ch-name').textContent=c.prop;
+  document.getElementById('ch-addr').textContent=c.addr;
+  var el=document.getElementById('chat-msgs');
+  el.innerHTML=c.msgs.map(function(m){return'<div class="msg '+(m.out?'out':'in')+'">'+m.txt+'</div>';}).join('');
+  el.scrollTop=el.scrollHeight;
+  document.querySelectorAll('.citem').forEach(function(el,idx){el.classList.toggle('active-chat',idx===i);});
+}
+function sendMsg(){
+  var inp=document.getElementById('chat-in'),txt=inp.value.trim();if(!txt)return;
+  convos[activeChat].msgs.push({out:false,txt:txt});inp.value='';openChat(activeChat);
+  setTimeout(function(){convos[activeChat].msgs.push({out:true,txt:"Thank you! I'll get back to you shortly."});openChat(activeChat);},700);
+}
+
+// ============================================================
+// PAGE NAV
+// ============================================================
+function showPage(id){
+  ['search','yield','messages'].forEach(function(name){
+    var p=document.getElementById('page-'+name), t=document.getElementById('tab-'+name);
+    if(p){p.style.display=(name===id)?'flex':'none'; p.className='page'+(name===id?' active':'');}
+    if(t) t.classList.toggle('active',name===id);
+  });
+  if(id==='messages') renderChats();
+  if(id==='yield'){if(document.getElementById('y-country'))document.getElementById('y-country').value=currentCountry; calcYield();}
+  if(id==='search') setTimeout(function(){if(leafletMap)leafletMap.invalidateSize();},100);
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+window.addEventListener('load',function(){
+  initMap();
+  setCountry('il');
+  renderCustomCosts();
+});
+</script>
+</body>
+</html>
